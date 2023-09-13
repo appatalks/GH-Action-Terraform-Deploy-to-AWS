@@ -1,0 +1,59 @@
+name: "terragrunt plan and apply"
+description: terragrunt validate and apply terraform
+inputs:
+  aws-access-key-id:
+    required: true
+    description: aws-access-key-id
+  aws-secret-access-key:
+    required: true
+    description: aws-secret-access-key
+  env-dir:
+    required: true
+    description: directory with the aws account (mark) folder name
+  aws-region:
+    required: true
+    description: aws region
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+    
+    - name: setup terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_wrapper: false
+
+    - name: Setup Terragrunt
+      shell: bash
+      run: |
+          LATEST_URL=$(curl -sL  https://api.github.com/repos/gruntwork-io/terragrunt/releases  | jq -r '.[0].assets[].browser_download_url' | egrep 'linux.*amd64' | tail -1)
+          sudo wget -q -O /bin/terragrunt ${LATEST_URL}
+          sudo chmod +x /bin/terragrunt
+        
+    - name: GitHub OIDC Auth to assume AWS Role
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Check sts identity
+      shell: bash
+      run: |
+       aws sts get-caller-identity
+       aws s3 ls
+    
+    - name: terragrunt init
+      shell: bash
+      run: cd ${{ inputs.env-dir }}/${{ inputs.aws-region }} && terragrunt run-all init --terragrunt-non-interactive
+
+    - name: terragrunt plan
+      shell: bash
+      run: cd ${{ inputs.env-dir }}/${{ inputs.aws-region }} && terragrunt run-all plan  
+
+    # - name: terragrunt apply
+    #  shell: bash
+    #  if: ${{ inputs.apply-terragrunt == 'true' }}
+    #  run: cd ${{ inputs.env-dir }}/${{ inputs.aws-region }} && terragrunt run-all apply --terragrunt-non-interactive -auto-approve

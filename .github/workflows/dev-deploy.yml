@@ -1,0 +1,49 @@
+name: 'Deploy Prod Infrastructure'
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - makefile
+      - images/*
+      - README.md
+jobs:
+  terragrunt-action-dev:
+    strategy:
+      matrix:
+        include:
+          - env-dir: terragrunt/dev
+            aws-region: us-east-1
+            aws-account-id: *****
+            aws-role: OIDC-GitHub-Role
+            aws: aws
+            aws-audience: sts.amazonaws.com
+            
+    name: terragrunt aws dev environment deploy
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+
+      - name: Git clone the repository
+        uses: actions/checkout@v3
+
+      - name: GitHub OIDC Auth to assume AWS Role
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::*****:role/OIDC-GitHub-Role
+          role-session-name: oidc-github
+          aws-access-key-id: ${{ inputs.aws-access-key-id }}
+          aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+          aws-region: us-east-1 
+    
+      - name: terragrunt plan & apply
+        uses: ./.github/action/terragrunt-action     
+        with:
+          role-to-assume: arn:${{ matrix.aws }}:iam::${{ matrix.aws-account-id }}:role/${{ matrix.aws-role }}
+          role-session-name: github-action
+          aws-region: ${{ matrix.aws-region }}
+          env-dir: ${{ matrix.env-dir }}
+          aws-audience: ${{ matrix.aws-audience }}

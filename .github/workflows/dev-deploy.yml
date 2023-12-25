@@ -28,7 +28,7 @@ jobs:
     steps:
 
       - name: Git clone the repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: GitHub OIDC Auth to assume AWS Role
         uses: aws-actions/configure-aws-credentials@v3
